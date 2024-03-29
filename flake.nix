@@ -19,6 +19,7 @@
             gdb
             openssl
             xmlformat
+            katana
           ];
           shellHook = ''
             exec fish
