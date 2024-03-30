@@ -4,7 +4,7 @@ use std::{fs, path::Path};
 use kml::{types::Placemark, Kml, KmlDocument};
 use std::io;
 
-use crate::model::CoffeeMapConfig;
+
 use crate::write_kml;
 
 const CACHE_FILENAME: &str = "cache.kml";

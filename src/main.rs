@@ -8,7 +8,7 @@ use reqwest::blocking;
 use std::collections::{HashMap, HashSet};
 use std::env;
 
-use std::path::Path;
+
 
 use crate::katana_stream::KatanaStream;
 use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
