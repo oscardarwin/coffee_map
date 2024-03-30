@@ -7,24 +7,27 @@ use kml::{
     Kml, KmlWriter,
 };
 use model::CoffeeMapConfig;
+use terminal_gui::LogCounts;
+
 use reqwest::blocking;
 use serde_json::{json, Value};
-use std::path::Path;
-use std::{collections::HashMap, future};
+use std::io::{self, BufRead, BufReader};
+use std::{collections::HashMap, future, thread, time::Duration};
 use std::{env, error::Error};
 use std::{fs::File, process::ChildStdout};
-use std::{
-    io::{self, BufRead, BufReader},
-    thread,
-};
 use std::{
     ops::Deref,
     process::{Command, Stdio},
 };
+use std::{path::Path, rc::Rc};
 use url::Url;
 
 use crate::katana_stream::KatanaStream;
-use crate::model::{CoffeeMapError, CoffeeMapLogMsg};
+use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
+
+use std::convert::TryInto;
+use superconsole::components::bordering::{Bordered, BorderedSpec};
+use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
 
 mod cafe_placemarks;
 mod google_places;
@@ -33,7 +36,7 @@ mod model;
 mod terminal_gui;
 mod write_kml;
 
-fn main() -> std::io::Result<()> {
+fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     let google_api_key = &args[1];
@@ -46,7 +49,7 @@ fn main() -> std::io::Result<()> {
         num_concurrent_katana_input_processors: 10,
         nth_item_to_log: 10,
         existing_kml_folder: "./kml".to_string(),
-        output_folder: "./ect_1041".to_string(),
+        output_folder: "./ect_30_03_2".to_string(),
         output_prefix: "ect".to_string(),
     };
 
@@ -63,35 +66,6 @@ struct PlacemarkWithProcessInfo {
     placemark: Placemark,
     cached_result: bool,
     queried_from_html_details: bool,
-}
-
-#[derive(Clone)]
-enum SearchTerm {
-    UrlFragment(String),
-    CafeDetails(String),
-}
-
-impl SearchTerm {
-    fn extract_str(&self) -> &String {
-        match self {
-            SearchTerm::UrlFragment(str) => str,
-            SearchTerm::CafeDetails(str) => str,
-        }
-    }
-}
-
-enum PlacemarkComputation {
-    FromCache(SearchTerm, Placemark),
-    FromGoogleQuery(SearchTerm, Placemark),
-}
-
-impl PlacemarkComputation {
-    fn to_placemark(self) -> Placemark {
-        match self {
-            Self::FromCache(_, placemark) => placemark,
-            Self::FromGoogleQuery(_, placemark) => placemark,
-        }
-    }
 }
 
 fn process_katana_result(
@@ -129,8 +103,13 @@ fn crawl_cafes(config: &CoffeeMapConfig, google_api_key: &String) -> Vec<Placema
     let client = blocking::Client::new();
 
     let mut placemark_results = HashMap::<String, PlacemarkComputation>::new();
+    let mut computation_log = LogCounts::new();
 
-    KatanaStream::new(&config)
+    let mut superconsole = SuperConsole::new()
+        .ok_or_else(|| anyhow::anyhow!("Not a TTY"))
+        .unwrap();
+
+    let placemarks = KatanaStream::new(&config)
         .filter_map(|katana_result| {
             let placemark_result = process_katana_result(
                 katana_result,
@@ -139,10 +118,17 @@ fn crawl_cafes(config: &CoffeeMapConfig, google_api_key: &String) -> Vec<Placema
                 &cached_searchterm_to_placemark,
             );
 
+            computation_log = computation_log.update(&placemark_result);
+            superconsole.render(&computation_log.make_component());
+
             placemark_result.ok()
         })
         .map(|placemark_computation| placemark_computation.to_placemark())
-        .collect::<Vec<Placemark>>()
+        .collect::<Vec<Placemark>>();
+
+    superconsole.finalize(&computation_log.make_component());
+
+    placemarks
 }
 
 fn make_existing_placemarks_hashmap(output_folder: &String) -> HashMap<String, Placemark> {
