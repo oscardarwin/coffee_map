@@ -1,21 +1,19 @@
 use kml::types::Placemark;
 use serde_json::Value;
-use std::io;
-
+use std::{hash::Hasher, io};
 
 use superconsole::{
     components::{bordering::BorderedSpec, splitting::SplitKind, Bordered, Split},
     Component, Dimensions, Direction, DrawMode, Line, Lines,
 };
 
+use std::hash::Hash;
+
 pub struct CoffeeMapConfig {
     pub kml_batch_size: usize,
     pub katana_search_depth: u8,
     pub katana_requests_per_second: u8,
-    pub num_concurrent_katana_fetchers: u8,
-    pub num_concurrent_katana_input_processors: u8,
-    pub nth_item_to_log: i32,
-    pub existing_kml_folder: String,
+    pub cache_folder: Option<String>,
     pub output_folder: String,
     pub output_prefix: String,
 }
@@ -57,7 +55,32 @@ impl PlacemarkComputation {
             Self::FromGoogleQuery(_, placemark) => placemark,
         }
     }
+
+    fn get_placemark(&self) -> &Placemark {
+        match self {
+            Self::FromCache(_, placemark) => &placemark,
+            Self::FromGoogleQuery(_, placemark) => &placemark,
+        }
+    }
+
+    pub fn get_id(&self) -> Option<&String> {
+        self.get_placemark().attrs.get("id")
+    }
 }
+
+impl Hash for PlacemarkComputation {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.get_id().hash(state);
+    }
+}
+
+impl PartialEq for PlacemarkComputation {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_id() == other.get_id()
+    }
+}
+
+impl Eq for PlacemarkComputation {}
 
 struct TableColumn {
     values: Vec<String>,

@@ -1,13 +1,16 @@
 use itertools::Itertools;
 use kml::{
     types::{
-        ColorMode, Element, Icon, IconStyle, KmlDocument, KmlVersion, LabelStyle, Pair,
-        Placemark, Style, StyleMap,
+        ColorMode, Element, Icon, IconStyle, KmlDocument, KmlVersion, LabelStyle, Pair, Placemark,
+        Style, StyleMap,
     },
     Kml, KmlWriter,
 };
-use std::fs::File;
 use std::{collections::HashMap, io::Result};
+use std::{
+    fs::{self, File},
+    path::Path,
+};
 
 use crate::model::CoffeeMapConfig;
 
@@ -17,49 +20,61 @@ pub fn generate_kml_documents(config: &CoffeeMapConfig, placemarks: Vec<Placemar
     let mut chunk_id = 0;
 
     for placemarks_chunk in &placemarks.into_iter().chunks(config.kml_batch_size) {
-        let mut attrs = HashMap::<String, String>::new();
-        attrs.insert(
-            "xmlns".to_string(),
-            "http://www.opengis.net/kml/2.2".to_string(),
-        );
-        let name_tag = Kml::Element(Element {
-            name: "name".to_string(),
-            attrs: HashMap::<String, String>::new(),
-            content: Some(format!("ECT places {}", chunk_id)),
-            children: vec![],
-        });
+        let placemarks_chunked = placemarks_chunk.into_iter().collect::<Vec<Placemark>>();
 
-        let style_tags = generate_styles();
+        let filename = format!("{}_chunk_{}.kml", &config.output_prefix, chunk_id);
+        generate_kml_document(placemarks_chunked, config.output_folder.clone(), filename);
 
-        let mut elements = vec![name_tag];
-        elements.extend(style_tags.into_iter());
-        elements.extend(
-            placemarks_chunk
-                .into_iter()
-                .map(|placemark| Kml::Placemark(placemark)),
-        );
-
-        let doc = Kml::Document {
-            attrs: HashMap::<String, String>::new(),
-            elements,
-        };
-
-        let document = KmlDocument {
-            version: KmlVersion::V22,
-            attrs,
-            elements: vec![doc],
-        };
-
-        let mut file = File::create(format!(
-            "{}/{}_chunk_{}.kml",
-            config.output_folder, config.output_prefix, chunk_id
-        ))?;
         chunk_id += 1;
-
-        let mut writer = KmlWriter::from_writer(&mut file);
-
-        writer.write(&Kml::KmlDocument(document));
     }
+
+    Ok(())
+}
+
+pub fn generate_kml_document(
+    placemarks: Vec<Placemark>,
+    folder: String,
+    filename: String,
+) -> Result<()> {
+    let mut attrs = HashMap::<String, String>::new();
+    attrs.insert(
+        "xmlns".to_string(),
+        "http://www.opengis.net/kml/2.2".to_string(),
+    );
+    let name_tag = Kml::Element(Element {
+        name: "name".to_string(),
+        attrs: HashMap::<String, String>::new(),
+        content: Some(String::clone(&filename)),
+        children: vec![],
+    });
+
+    let style_tags = generate_styles();
+
+    let mut elements = vec![name_tag];
+    elements.extend(style_tags.into_iter());
+    elements.extend(
+        placemarks
+            .into_iter()
+            .map(|placemark| Kml::Placemark(placemark)),
+    );
+
+    let doc = Kml::Document {
+        attrs: HashMap::<String, String>::new(),
+        elements,
+    };
+
+    let document = KmlDocument {
+        version: KmlVersion::V22,
+        attrs,
+        elements: vec![doc],
+    };
+
+    fs::create_dir_all(Path::new(&folder));
+    let mut file = File::create(format!("{}/{}", folder, filename))?;
+
+    let mut writer = KmlWriter::from_writer(&mut file);
+
+    writer.write(&Kml::KmlDocument(document));
 
     Ok(())
 }

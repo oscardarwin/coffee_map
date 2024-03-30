@@ -5,7 +5,7 @@ use terminal_gui::LogCounts;
 
 use reqwest::blocking;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 
 use std::path::Path;
@@ -15,7 +15,7 @@ use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
 
 use superconsole::SuperConsole;
 
-mod cafe_placemarks;
+mod cache;
 mod google_places;
 mod katana_stream;
 mod model;
@@ -29,29 +29,60 @@ fn main() -> anyhow::Result<()> {
 
     let config = CoffeeMapConfig {
         kml_batch_size: 1000,
-        katana_search_depth: 2,
+        katana_search_depth: 12,
         katana_requests_per_second: 40,
-        num_concurrent_katana_fetchers: 10,
-        num_concurrent_katana_input_processors: 10,
-        nth_item_to_log: 10,
-        existing_kml_folder: "./kml".to_string(),
-        output_folder: "./ect_30_03_2".to_string(),
-        output_prefix: "ect".to_string(),
+        cache_folder: Some("./kml/cache/".to_string()),
+        output_folder: "./kml/30_03_3/".to_string(),
+        output_prefix: "placemarks".to_string(),
     };
 
-    let placemarks = crawl_cafes(&config, google_api_key);
+    let cache = match &config.cache_folder {
+        Some(folder) => cache::make_existing_placemarks_hashmap(folder.clone()),
+        None => HashMap::<String, Placemark>::new(),
+    };
+
+    let placemarks = crawl_cafes(&config, google_api_key, &cache)
+        .into_iter()
+        .map(|computation| computation.to_placemark())
+        .collect::<Vec<Placemark>>();
+
+    config
+        .cache_folder
+        .as_ref()
+        .map(|folder| cache::update(folder.clone(), cache, &placemarks));
 
     write_kml::generate_kml_documents(&config, placemarks);
 
     Ok(())
 }
 
-#[derive(Debug)]
-struct PlacemarkWithProcessInfo {
-    searchterm: String,
-    placemark: Placemark,
-    cached_result: bool,
-    queried_from_html_details: bool,
+fn crawl_cafes(
+    config: &CoffeeMapConfig,
+    google_api_key: &String,
+    cached_search_terms: &HashMap<String, Placemark>,
+) -> HashSet<PlacemarkComputation> {
+    let client = blocking::Client::new();
+
+    let mut computation_log = LogCounts::new();
+    let mut superconsole = SuperConsole::new()
+        .ok_or_else(|| anyhow::anyhow!("Not a TTY"))
+        .unwrap();
+
+    let placemarks = KatanaStream::new(&config)
+        .filter_map(|katana_result| {
+            let placemark_result =
+                process_katana_result(katana_result, google_api_key, &client, cached_search_terms);
+
+            computation_log = computation_log.update(&placemark_result);
+            superconsole.render(&computation_log.make_component());
+
+            placemark_result.ok()
+        })
+        .collect::<HashSet<PlacemarkComputation>>();
+
+    superconsole.finalize(&computation_log.make_component());
+
+    placemarks
 }
 
 fn process_katana_result(
@@ -81,59 +112,6 @@ fn process_katana_result(
             }
         })
     }
-}
-
-fn crawl_cafes(config: &CoffeeMapConfig, google_api_key: &String) -> Vec<Placemark> {
-    let cached_searchterm_to_placemark =
-        make_existing_placemarks_hashmap(&config.existing_kml_folder);
-    let client = blocking::Client::new();
-
-    let _placemark_results = HashMap::<String, PlacemarkComputation>::new();
-    let mut computation_log = LogCounts::new();
-
-    let mut superconsole = SuperConsole::new()
-        .ok_or_else(|| anyhow::anyhow!("Not a TTY"))
-        .unwrap();
-
-    let placemarks = KatanaStream::new(&config)
-        .filter_map(|katana_result| {
-            let placemark_result = process_katana_result(
-                katana_result,
-                google_api_key,
-                &client,
-                &cached_searchterm_to_placemark,
-            );
-
-            computation_log = computation_log.update(&placemark_result);
-            superconsole.render(&computation_log.make_component());
-
-            placemark_result.ok()
-        })
-        .map(|placemark_computation| placemark_computation.to_placemark())
-        .collect::<Vec<Placemark>>();
-
-    superconsole.finalize(&computation_log.make_component());
-
-    placemarks
-}
-
-fn make_existing_placemarks_hashmap(output_folder: &String) -> HashMap<String, Placemark> {
-    let current_kml_folder = Path::new(output_folder.as_str());
-    let existing_placemarks = cafe_placemarks::read_placemarks_in_directory(current_kml_folder);
-
-    println!(
-        "existing coffee map contains {} entries",
-        existing_placemarks.len()
-    );
-
-    existing_placemarks
-        .into_iter()
-        .filter_map(|placemark| {
-            let searchterm = placemark.attrs.get("search_term")?;
-
-            Some((searchterm.clone(), placemark))
-        })
-        .collect()
 }
 
 fn make_searchterm(katana_cafe: ECTCafeResult) -> SearchTerm {
