@@ -1,12 +1,12 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 
 use kml::{
-    types::{Element, Geometry, Placemark, Point},
+    types::{Placemark},
     Kml, KmlDocument,
 };
 
-use crate::google_places::{DisplayName, GooglePlace, Location};
-use crate::write_kml::CUP_STYLE_ID;
+
+
 
 pub fn read_placemarks_in_directory<P: AsRef<Path>>(path: P) -> Vec<Placemark> {
     fs::read_dir(path)

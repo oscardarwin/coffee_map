@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use kml::{
     types::{
-        ColorMode, Element, Geometry, Icon, IconStyle, KmlDocument, KmlVersion, LabelStyle, Pair,
-        Placemark, Point, Style, StyleMap,
+        ColorMode, Element, Icon, IconStyle, KmlDocument, KmlVersion, LabelStyle, Pair,
+        Placemark, Style, StyleMap,
     },
     Kml, KmlWriter,
 };

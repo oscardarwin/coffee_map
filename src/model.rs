@@ -1,11 +1,11 @@
 use kml::types::Placemark;
 use serde_json::Value;
 use std::io;
-use url::Url;
+
 
 use superconsole::{
     components::{bordering::BorderedSpec, splitting::SplitKind, Bordered, Split},
-    Component, Dimensions, Direction, DrawMode, Line, Lines, SuperConsole,
+    Component, Dimensions, Direction, DrawMode, Line, Lines,
 };
 
 pub struct CoffeeMapConfig {

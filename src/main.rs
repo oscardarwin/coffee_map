@@ -1,33 +1,19 @@
-use katana_stream::{ECTCafeDetails, ECTCafeResult};
-use kml::{
-    types::{
-        ColorMode, Element, Geometry, Icon, IconStyle, KmlDocument, KmlVersion, LabelStyle, Pair,
-        Placemark, Point, Style, StyleMap,
-    },
-    Kml, KmlWriter,
-};
+use katana_stream::ECTCafeResult;
+use kml::types::Placemark;
 use model::CoffeeMapConfig;
 use terminal_gui::LogCounts;
 
 use reqwest::blocking;
-use serde_json::{json, Value};
-use std::io::{self, BufRead, BufReader};
-use std::{collections::HashMap, future, thread, time::Duration};
-use std::{env, error::Error};
-use std::{fs::File, process::ChildStdout};
-use std::{
-    ops::Deref,
-    process::{Command, Stdio},
-};
-use std::{path::Path, rc::Rc};
-use url::Url;
+
+use std::collections::HashMap;
+use std::env;
+
+use std::path::Path;
 
 use crate::katana_stream::KatanaStream;
 use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
 
-use std::convert::TryInto;
-use superconsole::components::bordering::{Bordered, BorderedSpec};
-use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
+use superconsole::SuperConsole;
 
 mod cafe_placemarks;
 mod google_places;
@@ -102,7 +88,7 @@ fn crawl_cafes(config: &CoffeeMapConfig, google_api_key: &String) -> Vec<Placema
         make_existing_placemarks_hashmap(&config.existing_kml_folder);
     let client = blocking::Client::new();
 
-    let mut placemark_results = HashMap::<String, PlacemarkComputation>::new();
+    let _placemark_results = HashMap::<String, PlacemarkComputation>::new();
     let mut computation_log = LogCounts::new();
 
     let mut superconsole = SuperConsole::new()
@@ -154,7 +140,7 @@ fn make_searchterm(katana_cafe: ECTCafeResult) -> SearchTerm {
     match katana_cafe {
         ECTCafeResult {
             details: Some(cafe_details),
-            endpoint,
+            endpoint: _,
         } => {
             let search_string = format!("{} {}", &cafe_details.name, &cafe_details.address);
             SearchTerm::CafeDetails(search_string)

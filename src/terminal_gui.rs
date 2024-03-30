@@ -1,9 +1,9 @@
 use std::convert::TryInto;
-use std::rc::Rc;
+
 use superconsole::components::bordering::{Bordered, BorderedSpec};
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
-use superconsole::{Component, Dimensions, Direction, DrawMode, Line, Lines, SuperConsole};
+use superconsole::{Component, Dimensions, Direction, DrawMode, Line, Lines};
 
 use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
 

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use kml::types::{Element, Geometry, Placemark, Point};
-use reqwest::{blocking, Response};
-use serde::{Deserialize, Serialize};
+use reqwest::{blocking};
+use serde::{Deserialize};
 use serde_json::{json, Value};
 
 use crate::model::CoffeeMapError;

@@ -1,6 +1,5 @@
 use std::{
-    error::Error,
-    io::{self, Lines},
+    io::{Lines},
     io::{BufRead, BufReader},
     process::{ChildStdout, Command, Stdio},
 };
