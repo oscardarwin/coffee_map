@@ -64,8 +64,6 @@ impl LogCounts {
                 updated.katana_endpoint_parse_errors += 1
             }
             Err(CoffeeMapError::KatanaIOError(_)) => updated.katana_io_errors += 1,
-
-            _ => {}
         };
 
         updated
