@@ -29,8 +29,8 @@ fn main() -> Result<(), IOError> {
         kml_batch_size: 1000,
         katana_search_depth: 14,
         katana_requests_per_second: 40,
-        cache_folder: Some("./kml/cache/".to_string()),
-        output_folder: "./kml/30_03_4/".to_string(),
+        cache_folder: Some("./cache/".to_string()),
+        output_folder: "./kml/output/".to_string(),
         output_prefix: "placemarks".to_string(),
     };
 
