@@ -2,8 +2,6 @@ use kml::types::Placemark;
 use serde_json::Value;
 use std::{hash::Hasher, io};
 
-
-
 use std::hash::Hash;
 
 pub struct CoffeeMapConfig {
@@ -16,13 +14,21 @@ pub struct CoffeeMapConfig {
 }
 
 #[derive(Debug)]
-pub enum CoffeeMapError {
+pub enum PipelineError {
     GoogleHTTPError(String),
     GooglePlaceNotFoundError(String),
     GoogleJsonParseError(String),
     KatanaJsonParseError(serde_json::Error),
     KatanaEndpointParseError(Value),
     KatanaIOError(io::Error),
+}
+
+#[derive(Debug)]
+pub enum IOError {
+    SuperConsoleNotTTY,
+    KMLFileCreation(io::Error),
+    CreateMissingDirectories(io::Error),
+    KMLWriteError(kml::Error),
 }
 
 #[derive(Clone)]
@@ -62,6 +68,13 @@ impl PlacemarkComputation {
 
     pub fn get_id(&self) -> Option<&String> {
         self.get_placemark().attrs.get("id")
+    }
+
+    pub fn get_search_term(&self) -> &SearchTerm {
+        match &self {
+            Self::FromCache(searchterm, _) => searchterm,
+            Self::FromGoogleQuery(searchterm, _) => searchterm,
+        }
     }
 }
 

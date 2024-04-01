@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use kml::types::{Element, Geometry, Placemark, Point};
-use reqwest::{blocking};
-use serde::{Deserialize};
+use reqwest::blocking;
+use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::model::CoffeeMapError;
+use crate::model::PipelineError;
 use crate::write_kml::CUP_STYLE_ID;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -76,7 +76,7 @@ pub fn query(
     client: &blocking::Client,
     searchterm: String,
     api_key: String,
-) -> Result<GooglePlaceResult, CoffeeMapError> {
+) -> Result<GooglePlaceResult, PipelineError> {
     let endpoint = "https://places.googleapis.com/v1/places:searchText";
     let request_body = json!({
         "textQuery": searchterm.clone()
@@ -94,7 +94,7 @@ pub fn query(
 
     let response = req
         .send()
-        .map_err(|err| CoffeeMapError::GoogleHTTPError(format!("{:#?}", err)))?;
+        .map_err(|err| PipelineError::GoogleHTTPError(format!("{:#?}", err)))?;
 
     if response.status() != reqwest::StatusCode::OK {
         let error_str = format!(
@@ -102,22 +102,22 @@ pub fn query(
             &searchterm,
             response.status()
         );
-        return Err(CoffeeMapError::GoogleHTTPError(error_str));
+        return Err(PipelineError::GoogleHTTPError(error_str));
     }
 
     let body = response
         .text()
-        .map_err(|err| CoffeeMapError::GoogleHTTPError(format!("{:#?}", err)))?;
+        .map_err(|err| PipelineError::GoogleHTTPError(format!("{:#?}", err)))?;
 
     let response: Value = serde_json::from_str(body.as_str())
-        .map_err(|err| CoffeeMapError::GoogleHTTPError(format!("{:#?}", err)))?;
+        .map_err(|err| PipelineError::GoogleHTTPError(format!("{:#?}", err)))?;
 
     let places_json = response
         .get("places")
-        .ok_or(CoffeeMapError::GooglePlaceNotFoundError(searchterm.clone()))?;
+        .ok_or(PipelineError::GooglePlaceNotFoundError(searchterm.clone()))?;
 
     let mut places = serde_json::from_value::<Vec<GooglePlace>>(places_json.clone())
-        .map_err(|err| CoffeeMapError::GoogleJsonParseError(format!("{:#?}", err)))?
+        .map_err(|err| PipelineError::GoogleJsonParseError(format!("{:#?}", err)))?
         .into_iter();
 
     let cafe_keyword = "cafe".to_string();
@@ -134,7 +134,7 @@ pub fn query(
     } else {
         places
             .next()
-            .ok_or(CoffeeMapError::GooglePlaceNotFoundError(searchterm.clone()))?
+            .ok_or(PipelineError::GooglePlaceNotFoundError(searchterm.clone()))?
     };
 
     Ok(GooglePlaceResult { place, searchterm })

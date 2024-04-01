@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::{fs, path::Path};
 
 use kml::{types::Placemark, Kml, KmlDocument};
-use std::io;
 
-
+use crate::model::{IOError, PlacemarkComputation};
 use crate::write_kml;
 
 const CACHE_FILENAME: &str = "cache.kml";
@@ -12,15 +11,12 @@ const CACHE_FILENAME: &str = "cache.kml";
 pub fn update(
     cache_folder: String,
     cache: HashMap<String, Placemark>,
-    new_placemarks: &Vec<Placemark>,
-) -> io::Result<()> {
+    new_placemarks: &Vec<PlacemarkComputation>,
+) -> Result<(), IOError> {
     let mut new_cache = HashMap::clone(&cache);
 
     for placemark in new_placemarks {
-        let search_term = placemark
-            .attrs
-            .get(&"search_term".to_string())
-            .map(|search_term| search_term.clone());
+        let search_term = placemark.get_search_term().extract_str().clone();
 
         search_term.map(|search_term| new_cache.insert(search_term, placemark.clone()));
     }

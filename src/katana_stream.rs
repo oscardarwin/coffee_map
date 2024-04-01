@@ -1,11 +1,11 @@
 use std::{
-    io::{Lines},
+    io::Lines,
     io::{BufRead, BufReader},
     process::{ChildStdout, Command, Stdio},
 };
 
 use crate::model::CoffeeMapConfig;
-use crate::model::CoffeeMapError;
+use crate::model::PipelineError;
 use scraper::{Html, Selector};
 use serde_json::Value;
 use url::Url;
@@ -67,26 +67,25 @@ fn spawn_katana_process(args: Vec<&str>) -> Option<ChildStdout> {
 }
 
 impl Iterator for KatanaStream {
-    type Item = Result<ECTCafeResult, CoffeeMapError>;
+    type Item = Result<ECTCafeResult, PipelineError>;
 
-    fn next(&mut self) -> Option<Result<ECTCafeResult, CoffeeMapError>> {
+    fn next(&mut self) -> Option<Result<ECTCafeResult, PipelineError>> {
         let ect_cafe_details = self
             .reader_lines
             .next()?
-            .map_err(CoffeeMapError::KatanaIOError)
+            .map_err(PipelineError::KatanaIOError)
             .and_then(parse_katana_output);
 
         Some(ect_cafe_details)
     }
 }
 
-fn parse_katana_output(json_string: String) -> Result<ECTCafeResult, CoffeeMapError> {
+fn parse_katana_output(json_string: String) -> Result<ECTCafeResult, PipelineError> {
     let katana_json: Value = serde_json::from_str(json_string.as_str())
-        .map_err(|err| CoffeeMapError::KatanaJsonParseError(err))?;
+        .map_err(|err| PipelineError::KatanaJsonParseError(err))?;
 
-    let endpoint = parse_katana_endpoint(&katana_json).ok_or(
-        CoffeeMapError::KatanaEndpointParseError(katana_json.clone()),
-    )?;
+    let endpoint = parse_katana_endpoint(&katana_json)
+        .ok_or(PipelineError::KatanaEndpointParseError(katana_json.clone()))?;
     let details = parse_cafe_details(&katana_json);
 
     Ok(ECTCafeResult { endpoint, details })
