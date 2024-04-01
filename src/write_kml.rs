@@ -6,24 +6,27 @@ use kml::{
     },
     Kml, KmlWriter,
 };
-use std::{collections::HashMap, io::Result};
+use std::collections::HashMap;
 use std::{
     fs::{self, File},
     path::Path,
 };
 
-use crate::model::CoffeeMapConfig;
+use crate::model::{CoffeeMapConfig, IOError};
 
 pub const CUP_STYLE_ID: &str = "icon-1534-0288D1";
 
-pub fn generate_kml_documents(config: &CoffeeMapConfig, placemarks: Vec<Placemark>) -> Result<()> {
+pub fn generate_kml_documents(
+    config: &CoffeeMapConfig,
+    placemarks: Vec<Placemark>,
+) -> Result<(), IOError> {
     let mut chunk_id = 0;
 
     for placemarks_chunk in &placemarks.into_iter().chunks(config.kml_batch_size) {
         let placemarks_chunked = placemarks_chunk.into_iter().collect::<Vec<Placemark>>();
 
         let filename = format!("{}_chunk_{}.kml", &config.output_prefix, chunk_id);
-        generate_kml_document(placemarks_chunked, config.output_folder.clone(), filename);
+        generate_kml_document(placemarks_chunked, config.output_folder.clone(), filename)?;
 
         chunk_id += 1;
     }
@@ -35,7 +38,7 @@ pub fn generate_kml_document(
     placemarks: Vec<Placemark>,
     folder: String,
     filename: String,
-) -> Result<()> {
+) -> Result<(), IOError> {
     let mut attrs = HashMap::<String, String>::new();
     attrs.insert(
         "xmlns".to_string(),
@@ -69,12 +72,16 @@ pub fn generate_kml_document(
         elements: vec![doc],
     };
 
-    fs::create_dir_all(Path::new(&folder));
-    let mut file = File::create(format!("{}/{}", folder, filename))?;
+    fs::create_dir_all(Path::new(&folder)).map_err(|err| IOError::CreateMissingDirectories(err))?;
+
+    let mut file = File::create(format!("{}/{}", folder, filename))
+        .map_err(|err| IOError::KMLFileCreation(err))?;
 
     let mut writer = KmlWriter::from_writer(&mut file);
 
-    writer.write(&Kml::KmlDocument(document));
+    writer
+        .write(&Kml::KmlDocument(document))
+        .map_err(|err| IOError::KMLWriteError(err))?;
 
     Ok(())
 }

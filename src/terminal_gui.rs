@@ -5,7 +5,7 @@ use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
 use superconsole::{Component, Dimensions, Direction, DrawMode, Line, Lines};
 
-use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
+use crate::model::{PipelineError, PlacemarkComputation, SearchTerm};
 
 struct TableColumn {
     values: Vec<String>,
@@ -40,7 +40,7 @@ pub struct LogCounts {
 }
 
 impl LogCounts {
-    pub fn update(&self, placemark: &Result<PlacemarkComputation, CoffeeMapError>) -> LogCounts {
+    pub fn update(&self, placemark: &Result<PlacemarkComputation, PipelineError>) -> LogCounts {
         let mut updated = LogCounts::clone(&self);
 
         match placemark {
@@ -56,16 +56,14 @@ impl LogCounts {
             Ok(PlacemarkComputation::FromGoogleQuery(SearchTerm::UrlFragment(_), _)) => {
                 updated.queried_with_url += 1
             }
-            Err(CoffeeMapError::GoogleHTTPError(_)) => updated.google_http_errors += 1,
-            Err(CoffeeMapError::GooglePlaceNotFoundError(_)) => updated.place_not_found_errors += 1,
-            Err(CoffeeMapError::GoogleJsonParseError(_)) => updated.google_json_parse_errors += 1,
-            Err(CoffeeMapError::KatanaJsonParseError(_)) => updated.katana_json_parse_errors += 1,
-            Err(CoffeeMapError::KatanaEndpointParseError(_)) => {
+            Err(PipelineError::GoogleHTTPError(_)) => updated.google_http_errors += 1,
+            Err(PipelineError::GooglePlaceNotFoundError(_)) => updated.place_not_found_errors += 1,
+            Err(PipelineError::GoogleJsonParseError(_)) => updated.google_json_parse_errors += 1,
+            Err(PipelineError::KatanaJsonParseError(_)) => updated.katana_json_parse_errors += 1,
+            Err(PipelineError::KatanaEndpointParseError(_)) => {
                 updated.katana_endpoint_parse_errors += 1
             }
-            Err(CoffeeMapError::KatanaIOError(_)) => updated.katana_io_errors += 1,
-
-            _ => {}
+            Err(PipelineError::KatanaIOError(_)) => updated.katana_io_errors += 1,
         };
 
         updated

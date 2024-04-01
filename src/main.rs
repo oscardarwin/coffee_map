@@ -1,6 +1,6 @@
 use katana_stream::ECTCafeResult;
 use kml::types::Placemark;
-use model::CoffeeMapConfig;
+use model::{CoffeeMapConfig, IOError};
 use terminal_gui::LogCounts;
 
 use reqwest::blocking;
@@ -8,10 +8,8 @@ use reqwest::blocking;
 use std::collections::{HashMap, HashSet};
 use std::env;
 
-use std::path::Path;
-
 use crate::katana_stream::KatanaStream;
-use crate::model::{CoffeeMapError, PlacemarkComputation, SearchTerm};
+use crate::model::{PipelineError, PlacemarkComputation, SearchTerm};
 
 use superconsole::SuperConsole;
 
@@ -22,17 +20,17 @@ mod model;
 mod terminal_gui;
 mod write_kml;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), IOError> {
     let args: Vec<String> = env::args().collect();
 
     let google_api_key = &args[1];
 
     let config = CoffeeMapConfig {
         kml_batch_size: 1000,
-        katana_search_depth: 12,
+        katana_search_depth: 14,
         katana_requests_per_second: 40,
-        cache_folder: Some("./kml/cache/".to_string()),
-        output_folder: "./kml/30_03_3/".to_string(),
+        cache_folder: Some("./cache/".to_string()),
+        output_folder: "./kml/output/".to_string(),
         output_prefix: "placemarks".to_string(),
     };
 
@@ -41,32 +39,32 @@ fn main() -> anyhow::Result<()> {
         None => HashMap::<String, Placemark>::new(),
     };
 
-    let placemarks = crawl_cafes(&config, google_api_key, &cache)
-        .into_iter()
-        .map(|computation| computation.to_placemark())
-        .collect::<Vec<Placemark>>();
+    let placemarks = crawl_cafes(&config, google_api_key, &cache)?;
 
     config
         .cache_folder
         .as_ref()
         .map(|folder| cache::update(folder.clone(), cache, &placemarks));
 
-    write_kml::generate_kml_documents(&config, placemarks);
+    let deduplicated_placemarks_based_on_google_id = placemarks
+        .into_iter()
+        .collect::<HashSet<PlacemarkComputation>>()
+        .into_iter()
+        .map(|computation| computation.to_placemark())
+        .collect::<Vec<Placemark>>();
 
-    Ok(())
+    write_kml::generate_kml_documents(&config, placemarks)
 }
 
 fn crawl_cafes(
     config: &CoffeeMapConfig,
     google_api_key: &String,
     cached_search_terms: &HashMap<String, Placemark>,
-) -> HashSet<PlacemarkComputation> {
+) -> Result<Vec<PlacemarkComputation>, IOError> {
     let client = blocking::Client::new();
 
     let mut computation_log = LogCounts::new();
-    let mut superconsole = SuperConsole::new()
-        .ok_or_else(|| anyhow::anyhow!("Not a TTY"))
-        .unwrap();
+    let mut superconsole = SuperConsole::new().ok_or_else(|| IOError::SuperConsoleNotTTY)?;
 
     let placemarks = KatanaStream::new(&config)
         .filter_map(|katana_result| {
@@ -74,23 +72,23 @@ fn crawl_cafes(
                 process_katana_result(katana_result, google_api_key, &client, cached_search_terms);
 
             computation_log = computation_log.update(&placemark_result);
-            superconsole.render(&computation_log.make_component());
+            let _ = superconsole.render(&computation_log.make_component());
 
             placemark_result.ok()
         })
-        .collect::<HashSet<PlacemarkComputation>>();
+        .collect::<Vec<PlacemarkComputation>>();
 
-    superconsole.finalize(&computation_log.make_component());
+    let _ = superconsole.finalize(&computation_log.make_component());
 
-    placemarks
+    Ok(placemarks)
 }
 
 fn process_katana_result(
-    katana_result: Result<ECTCafeResult, CoffeeMapError>,
+    katana_result: Result<ECTCafeResult, PipelineError>,
     google_api_key: &String,
     client: &blocking::Client,
     searchterm_to_placemark: &HashMap<String, Placemark>,
-) -> Result<PlacemarkComputation, CoffeeMapError> {
+) -> Result<PlacemarkComputation, PipelineError> {
     let katana_cafe = katana_result?;
 
     let search_term = make_searchterm(katana_cafe);
