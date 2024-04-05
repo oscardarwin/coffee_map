@@ -1,6 +1,6 @@
 # coffee_map
 
-This repository generates a map like the following:
+This repository generates a map of specialty coffee shops in Europe like the following:
 
 ![Image cannot be loaded](/assets/example.png)
 
