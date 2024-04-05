@@ -10,7 +10,7 @@ You can find the actual map [here](https://www.google.com/maps/d/edit?mid=1VM-v9
 This program generates a KML map by executing the following steps:
 
 1. Use Katana to scrape cafes from [European coffee trip](europeancoffeetrip.com).
-1. Check the cache to see if a KML placemark already exists.
+1. Check a cache to see if a KML placemark already exists.
 1. If not, look up these cafes with the text-search based [google places API](https://developers.google.com/maps/documentation/places/web-service/text-search),
 1. Deduplicate and batch the results into one or many kml files.
 
