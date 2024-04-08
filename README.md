@@ -16,7 +16,7 @@ This program generates a KML map by executing the following steps:
 
 # How to use
 1. Install [Nix](https://nixos.org/) with your favourite package manager.
-1. Clone the repository.
+1. Fork the repository.
 1. Generate a [google API key](https://developers.google.com/maps/documentation/places/web-service/get-api-key).
 1. Load the development anvironment by running: `nix develop`.
 1. Start the program by running: `cargo run <YOU_GOOGLE_PLACES_API_KEY>`.
